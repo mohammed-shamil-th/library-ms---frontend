@@ -43,24 +43,40 @@ export default function RegisterForm() {
 
       if (!values.name) {
         errors.name = 'Name is required';
+      } else if (values.name.length < 2) {
+        errors.name = 'Name must be at least 2 characters long';
+      } else if (values.name.length > 100) {
+        errors.name = 'Name must not exceed 100 characters';
       }
 
       if (!values.email) {
         errors.email = 'Email is required';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
         errors.email = 'Please enter a valid email address';
+      } else if (values.email.length > 255) {
+        errors.email = 'Email must not exceed 255 characters';
       }
 
       if (!values.password) {
         errors.password = 'Password is required';
       } else if (values.password.length < 6) {
         errors.password = 'Password must be at least 6 characters long';
+      } else if (values.password.length > 100) {
+        errors.password = 'Password must not exceed 100 characters';
       }
 
       if (!values.confirmPassword) {
         errors.confirmPassword = 'Please confirm your password';
       } else if (values.password !== values.confirmPassword) {
         errors.confirmPassword = 'Passwords do not match';
+      }
+
+      if (values.phone && values.phone.length > 20) {
+        errors.phone = 'Phone number must not exceed 20 characters';
+      }
+
+      if (values.address && values.address.length > 500) {
+        errors.address = 'Address must not exceed 500 characters';
       }
 
       return errors;

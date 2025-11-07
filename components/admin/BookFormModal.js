@@ -97,18 +97,66 @@ export default function BookFormModal({ isOpen, onClose, editingBookId, setEditi
     validate: (values) => {
       const errors = {};
 
-      if (!values.title) errors.title = 'Title is required';
-      if (!values.author) errors.author = 'Author is required';
+      if (!values.title) {
+        errors.title = 'Title is required';
+      } else if (values.title.length < 1) {
+        errors.title = 'Title must be at least 1 character long';
+      } else if (values.title.length > 200) {
+        errors.title = 'Title must not exceed 200 characters';
+      }
+
+      if (!values.author) {
+        errors.author = 'Author is required';
+      } else if (values.author.length < 1) {
+        errors.author = 'Author name must be at least 1 character long';
+      } else if (values.author.length > 100) {
+        errors.author = 'Author name must not exceed 100 characters';
+      }
+
       if (!values.isbn) {
         errors.isbn = 'ISBN is required';
       } else if (!/^\d{13}$/.test(values.isbn.replace(/-/g, ''))) {
         errors.isbn = 'ISBN must be exactly 13 digits';
       }
-      if (!values.category) errors.category = 'Category is required';
-      if (values.totalCopies < 1) errors.totalCopies = 'Total copies must be at least 1';
-      if (values.availableCopies < 0) errors.availableCopies = 'Available copies cannot be negative';
-      if (values.availableCopies > values.totalCopies) {
+
+      if (!values.category) {
+        errors.category = 'Category is required';
+      }
+
+      if (values.description && values.description.length > 2000) {
+        errors.description = 'Description must not exceed 2000 characters';
+      }
+
+      if (values.publisher && values.publisher.length > 100) {
+        errors.publisher = 'Publisher name must not exceed 100 characters';
+      }
+
+      if (values.language && values.language.length > 50) {
+        errors.language = 'Language must not exceed 50 characters';
+      }
+
+      if (values.coverImage && values.coverImage.length > 500) {
+        errors.coverImage = 'Cover image URL must not exceed 500 characters';
+      }
+
+      if (values.totalCopies < 1) {
+        errors.totalCopies = 'Total copies must be at least 1';
+      } else if (values.totalCopies > 10000) {
+        errors.totalCopies = 'Total copies must not exceed 10000';
+      }
+
+      if (values.availableCopies < 0) {
+        errors.availableCopies = 'Available copies cannot be negative';
+      } else if (values.availableCopies > values.totalCopies) {
         errors.availableCopies = 'Available copies cannot exceed total copies';
+      }
+
+      if (values.publishedYear && (values.publishedYear < 1000 || values.publishedYear > new Date().getFullYear() + 1)) {
+        errors.publishedYear = `Published year must be between 1000 and ${new Date().getFullYear() + 1}`;
+      }
+
+      if (values.pages && (values.pages < 1 || values.pages > 50000)) {
+        errors.pages = 'Pages must be between 1 and 50000';
       }
 
       return errors;

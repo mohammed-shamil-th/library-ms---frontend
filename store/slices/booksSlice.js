@@ -168,9 +168,16 @@ const booksSlice = createSlice({
       })
       .addCase(fetchBooks.fulfilled, (state, action) => {
         state.loading = false;
-        state.books = action.payload.data || action.payload;
-        if (action.payload.pagination) {
-          state.pagination = action.payload.pagination;
+        const payload = action.payload;
+        state.books = payload.data || payload.books || payload;
+        if (payload.pagination) {
+          state.pagination = payload.pagination;
+        } else if (Array.isArray(state.books) && state.books.length > 0) {
+          // If pagination is missing but we have books, set a default pagination
+          state.pagination = {
+            ...state.pagination,
+            total: payload.total || state.books.length,
+          };
         }
         state.error = null;
       })
@@ -252,9 +259,16 @@ const booksSlice = createSlice({
       })
       .addCase(searchBooks.fulfilled, (state, action) => {
         state.loading = false;
-        state.books = action.payload.data || action.payload;
-        if (action.payload.pagination) {
-          state.pagination = action.payload.pagination;
+        const payload = action.payload;
+        state.books = payload.data || payload.books || payload;
+        if (payload.pagination) {
+          state.pagination = payload.pagination;
+        } else if (Array.isArray(state.books) && state.books.length > 0) {
+          // If pagination is missing but we have books, set a default pagination
+          state.pagination = {
+            ...state.pagination,
+            total: payload.total || state.books.length,
+          };
         }
         state.error = null;
       })

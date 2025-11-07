@@ -59,7 +59,7 @@ export default function AdminDashboard() {
             <TabsList>
               <TabsTrigger value="books">Manage Books</TabsTrigger>
               <TabsTrigger value="borrows">Manage Borrows</TabsTrigger>
-              <TabsTrigger value="users">Manage Users</TabsTrigger>
+              {/* <TabsTrigger value="users">Manage Users</TabsTrigger> */}
             </TabsList>
 
             <TabsContent value="books">

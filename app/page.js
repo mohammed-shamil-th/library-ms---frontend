@@ -137,7 +137,9 @@ export default function Home() {
                 {searchQuery ? `Search Results for "${searchQuery}"` : 'All Books'}
               </h2>
               <p className="books-count">
-                {pagination.total} {pagination.total === 1 ? 'book' : 'books'} found
+                {books.length > 0 && pagination.total === 0 
+                  ? `${books.length} ${books.length === 1 ? 'book' : 'books'} found`
+                  : `${pagination.total || books.length} ${(pagination.total || books.length) === 1 ? 'book' : 'books'} found`}
               </p>
             </div>
 

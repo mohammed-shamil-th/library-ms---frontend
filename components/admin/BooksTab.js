@@ -29,9 +29,7 @@ import {
   clearCurrentBook,
 } from '@/store/slices/booksSlice';
 
-const Plus = () => <span className="icon">+</span>;
-const Pencil = () => <span className="icon">✏️</span>;
-const Trash2 = () => <span className="icon">🗑️</span>;
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 
 const BOOK_CATEGORIES = [
   'Fiction',
@@ -237,7 +235,7 @@ export default function BooksTab({ onAddBook, onEditBook }) {
           <CardDescription>Manage your library's book collection</CardDescription>
         </div>
         <Button onClick={onAddBook}>
-          <Plus /> Add Book
+          <Plus size={18} strokeWidth={2} /> Add Book
         </Button>
       </CardHeader>
       <CardContent>
@@ -407,7 +405,7 @@ export default function BooksTab({ onAddBook, onEditBook }) {
                             title="Edit"
                             onClick={() => onEditBook(book._id)}
                           >
-                            <Pencil />
+                            <Pencil size={18} strokeWidth={2} />
                           </Button>
                           <Button
                             variant="ghost"
@@ -415,7 +413,7 @@ export default function BooksTab({ onAddBook, onEditBook }) {
                             onClick={() => handleDeleteClick(book._id, book.title)}
                             title="Delete"
                           >
-                            <Trash2 />
+                            <Trash2 size={18} strokeWidth={2} />
                           </Button>
                         </div>
                       </TableCell>

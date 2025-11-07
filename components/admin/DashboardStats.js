@@ -1,11 +1,7 @@
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-
-const BookOpen = () => <span className="icon">📚</span>;
-const TrendingUp = () => <span className="icon">📈</span>;
-const Clock = () => <span className="icon">⏰</span>;
-const Users = () => <span className="icon">👥</span>;
+import { BookOpen, TrendingUp, Clock, Users } from 'lucide-react';
 
 export default function DashboardStats({ stats }) {
   const totalBooks = stats?.totalBooks || 0;
@@ -18,7 +14,7 @@ export default function DashboardStats({ stats }) {
       <Card>
         <CardHeader className="stat-card-header">
           <CardTitle className="stat-card-title">Total Books</CardTitle>
-          <BookOpen />
+          <BookOpen className="stat-icon" size={24} strokeWidth={2} />
         </CardHeader>
         <CardContent>
           <div className="stat-value">{totalBooks}</div>
@@ -29,7 +25,7 @@ export default function DashboardStats({ stats }) {
       <Card>
         <CardHeader className="stat-card-header">
           <CardTitle className="stat-card-title">Active Borrows</CardTitle>
-          <TrendingUp />
+          <TrendingUp className="stat-icon" size={24} strokeWidth={2} />
         </CardHeader>
         <CardContent>
           <div className="stat-value">{activeBorrows}</div>
@@ -40,7 +36,7 @@ export default function DashboardStats({ stats }) {
       <Card>
         <CardHeader className="stat-card-header">
           <CardTitle className="stat-card-title">Overdue Books</CardTitle>
-          <Clock />
+          <Clock className="stat-icon" size={24} strokeWidth={2} />
         </CardHeader>
         <CardContent>
           <div className="stat-value stat-value-danger">{overdueBorrows}</div>
@@ -51,7 +47,7 @@ export default function DashboardStats({ stats }) {
       <Card>
         <CardHeader className="stat-card-header">
           <CardTitle className="stat-card-title">Active Users</CardTitle>
-          <Users />
+          <Users className="stat-icon" size={24} strokeWidth={2} />
         </CardHeader>
         <CardContent>
           <div className="stat-value">{activeUsers}</div>

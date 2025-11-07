@@ -20,8 +20,7 @@ import {
   setFilters as setBorrowsFilters,
 } from '@/store/slices/borrowsSlice';
 import { deleteBorrowAdmin, fetchDashboardStats } from '@/store/slices/adminSlice';
-
-const Trash2 = () => <span className="icon">🗑️</span>;
+import { Trash2 } from 'lucide-react';
 
 export default function BorrowsTab() {
   const dispatch = useDispatch();
@@ -185,7 +184,7 @@ export default function BorrowsTab() {
                             })}
                             title="Delete"
                           >
-                            <Trash2 />
+                            <Trash2 size={18} strokeWidth={2} />
                           </Button>
                         </div>
                       </TableCell>

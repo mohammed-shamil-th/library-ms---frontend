@@ -69,7 +69,9 @@ const styles = {
   input: {
     padding: '12px',
     fontSize: '16px',
-    border: '1px solid #ddd',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: '#ddd',
     borderRadius: '4px',
     outline: 'none',
     transition: 'border-color 0.3s ease, box-shadow 0.3s ease',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Link from 'next/link';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -30,7 +30,6 @@ import {
 } from '@/store/slices/booksSlice';
 
 const Plus = () => <span className="icon">+</span>;
-const Search = () => <span className="icon">🔍</span>;
 const Pencil = () => <span className="icon">✏️</span>;
 const Trash2 = () => <span className="icon">🗑️</span>;
 
@@ -121,15 +120,6 @@ export default function BooksTab({ onAddBook, onEditBook }) {
     }
   }, [dispatch, filters.category, filters.language, filters.availability, filters.sort, filters.order, pagination?.page, pagination?.limit, searchQuery, debouncedSearchQuery]);
 
-  const handleSearch = useCallback(() => {
-    if (localSearchQuery.trim()) {
-      dispatch(setSearchQuery(localSearchQuery.trim()));
-      dispatch(searchBooks({ query: localSearchQuery.trim(), ...filters, page: 1, limit: pagination.limit }));
-    } else {
-      dispatch(setSearchQuery(''));
-      dispatch(fetchBooks({ ...filters, page: 1, limit: pagination.limit }));
-    }
-  }, [dispatch, localSearchQuery, filters, pagination.limit]);
 
   const handleFilterChange = (key, value) => {
     dispatch(setFilters({ [key]: value }));
@@ -253,28 +243,68 @@ export default function BooksTab({ onAddBook, onEditBook }) {
       <CardContent>
         {/* Search and Filters */}
         <div className="books-controls">
-          <div className="search-bar">
+          <div className="search-bar" style={{ position: 'relative', flex: 1, maxWidth: '100%' }}>
+            <span style={{ 
+              position: 'absolute', 
+              left: '12px', 
+              top: '50%', 
+              transform: 'translateY(-50%)',
+              color: '#999',
+              fontSize: '1rem',
+              pointerEvents: 'none',
+              zIndex: 1
+            }}>
+              🔍
+            </span>
             <input
               type="text"
               placeholder="Search by title, author, or ISBN..."
               value={localSearchQuery}
               onChange={(e) => setLocalSearchQuery(e.target.value)}
-              className="form-input"
+              className="form-input search-input"
+              style={{ 
+                paddingLeft: '40px', 
+                paddingRight: localSearchQuery ? '40px' : '12px',
+                width: '100%'
+              }}
             />
-            <Button onClick={handleSearch} variant="default">
-              <Search /> Search
-            </Button>
-            {(searchQuery || localSearchQuery) && (
-              <Button
+            {localSearchQuery && (
+              <button
                 onClick={() => {
                   setLocalSearchQuery('');
                   dispatch(setSearchQuery(''));
-                  dispatch(fetchBooks({ ...filters, page: 1, limit: pagination.limit }));
+                  const params = {
+                    page: 1,
+                    limit: pagination.limit,
+                    ...(filters.category && { category: filters.category }),
+                    ...(filters.language && { language: filters.language }),
+                    ...(filters.availability && { availability: filters.availability }),
+                    ...(filters.sort && { sort: filters.sort }),
+                    ...(filters.order && { order: filters.order }),
+                  };
+                  dispatch(fetchBooks(params));
                 }}
-                variant="outline"
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#4a90e2',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem',
+                  padding: '4px 8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
+                }}
+                title="Clear search"
+                aria-label="Clear search"
               >
-                Clear
-              </Button>
+                ✕
+              </button>
             )}
           </div>
 

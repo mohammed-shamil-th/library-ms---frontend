@@ -213,7 +213,7 @@ export default function BorrowsTab() {
       </CardContent>
 
       {/* Delete Confirmation Modal */}
-      <ConfirmModal
+      <ConfirmGIModal
         isOpen={deleteModalOpen}
         onClose={() => {
           setDeleteModalOpen(false);

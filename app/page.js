@@ -25,60 +25,120 @@ export default function Home() {
   
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery || '');
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
+  const limit = 12; // Books per page
 
+  // Reset and fetch initial books when filters change
   useEffect(() => {
-    // Redirect admin users to admin dashboard
     if (isAuthenticated && isAdmin) {
       router.push('/admin/dashboard');
       return;
     }
     
-    // Fetch books on mount
-    dispatch(fetchBooks({ ...filters, page: 1, limit: 12 }));
-  }, [dispatch, isAuthenticated, isAdmin, router]);
+    if (!searchQuery && !debouncedSearchQuery.trim()) {
+      const params = {
+        page: pagination?.page || 1,
+        limit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(fetchBooks(params));
+    }
+  }, [dispatch, isAuthenticated, isAdmin, router, filters.category, filters.language, filters.availability, filters.sort, filters.order]);
 
   // Handle debounced search
   useEffect(() => {
     if (debouncedSearchQuery.trim()) {
       dispatch(setSearchQuery(debouncedSearchQuery.trim()));
-      dispatch(searchBooks({ 
+      const params = {
         query: debouncedSearchQuery.trim(),
-        ...filters, 
-        page: 1, 
-        limit: 12 
-      }));
+        page: 1,
+        limit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(searchBooks(params));
     } else if (debouncedSearchQuery === '' && searchQuery) {
       dispatch(setSearchQuery(''));
-      dispatch(fetchBooks({ ...filters, page: 1, limit: 12 }));
+      const params = {
+        page: 1,
+        limit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(fetchBooks(params));
     }
-  }, [dispatch, debouncedSearchQuery, filters, searchQuery]);
-
-  // Fetch books when filters change
-  useEffect(() => {
-    if (!debouncedSearchQuery.trim() && !searchQuery) {
-      dispatch(fetchBooks({ ...filters, page: pagination.page, limit: 12 }));
-    }
-  }, [dispatch, filters, pagination.page]);
+  }, [dispatch, debouncedSearchQuery, filters, searchQuery, limit]);
 
   const handleFilterChange = (key, value) => {
     dispatch(setFilters({ [key]: value }));
-    dispatch(fetchBooks({ ...filters, [key]: value, page: 1, limit: 12 }));
+    const updatedFilters = { ...filters, [key]: value };
+    const params = {
+      page: 1,
+      limit,
+      ...(updatedFilters.category && { category: updatedFilters.category }),
+      ...(updatedFilters.language && { language: updatedFilters.language }),
+      ...(updatedFilters.availability && { availability: updatedFilters.availability }),
+      ...(updatedFilters.sort && { sort: updatedFilters.sort }),
+      ...(updatedFilters.order && { order: updatedFilters.order }),
+    };
+    dispatch(fetchBooks(params));
   };
 
   const handleSortChange = (sortBy) => {
     dispatch(setFilters({ sortBy }));
-    dispatch(fetchBooks({ ...filters, sortBy, page: 1, limit: 12 }));
+    const updatedFilters = { ...filters, sortBy };
+    const params = {
+      page: 1,
+      limit,
+      ...(updatedFilters.category && { category: updatedFilters.category }),
+      ...(updatedFilters.language && { language: updatedFilters.language }),
+      ...(updatedFilters.availability && { availability: updatedFilters.availability }),
+      sort: updatedFilters.sort,
+      order: updatedFilters.order || 'asc',
+    };
+    dispatch(fetchBooks(params));
   };
 
-  const handlePageChange = (page) => {
-    dispatch(fetchBooks({ ...filters, page, limit: 12 }));
+  const handlePageChange = (newPage) => {
+    if (searchQuery) {
+      const params = {
+        query: searchQuery,
+        page: newPage,
+        limit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(searchBooks(params));
+    } else {
+      const params = {
+        page: newPage,
+        limit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(fetchBooks(params));
+    }
   };
 
   const handleBookClick = (bookId) => {
     router.push(`/books/${bookId}`);
   };
 
-  // Don't render if admin (will be redirected)
   if (isAuthenticated && isAdmin) {
     return null;
   }
@@ -110,7 +170,16 @@ export default function Home() {
                 onClick={() => {
                   setLocalSearchQuery('');
                   dispatch(setSearchQuery(''));
-                  dispatch(fetchBooks({ ...filters, page: 1, limit: 12 }));
+                  const params = {
+                    page: 1,
+                    limit,
+                    ...(filters.category && { category: filters.category }),
+                    ...(filters.language && { language: filters.language }),
+                    ...(filters.availability && { availability: filters.availability }),
+                    ...(filters.sort && { sort: filters.sort }),
+                    ...(filters.order && { order: filters.order }),
+                  };
+                  dispatch(fetchBooks(params));
                 }}
               >
                 Clear
@@ -137,20 +206,26 @@ export default function Home() {
                 {searchQuery ? `Search Results for "${searchQuery}"` : 'All Books'}
               </h2>
               <p className="books-count">
-                {books.length > 0 && pagination.total === 0 
-                  ? `${books.length} ${books.length === 1 ? 'book' : 'books'} found`
-                  : `${pagination.total || books.length} ${(pagination.total || books.length) === 1 ? 'book' : 'books'} found`}
+                {pagination.total 
+                  ? `${pagination.total} ${pagination.total === 1 ? 'book' : 'books'} found`
+                  : `${books.length} ${books.length === 1 ? 'book' : 'books'} found`}
               </p>
             </div>
 
             <BookGrid books={books} loading={loading} onBookClick={handleBookClick} />
 
-            {pagination.pages > 1 && (
-              <Pagination
-                currentPage={pagination.page}
-                totalPages={pagination.pages}
-                onPageChange={handlePageChange}
-              />
+            {/* Pagination */}
+            {pagination && pagination.pages > 1 && (
+              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', flexDirection:'column' }}>
+                <Pagination
+                  currentPage={pagination.page || 1}
+                  totalPages={pagination.pages}
+                  onPageChange={handlePageChange}
+                />
+                <span className="pagination-info" style={{ color: '#666', fontSize: '0.875rem' }}>
+                  ({pagination.total || books.length} total)
+                </span>
+              </div>
             )}
           </main>
         </div>

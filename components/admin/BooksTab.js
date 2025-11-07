@@ -8,6 +8,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import Pagination from '@/components/ui/Pagination';
 import { showToast } from '@/components/ui/ToastContainer';
 import {
   fetchBooks,
@@ -62,27 +64,62 @@ export default function BooksTab({ onAddBook, onEditBook }) {
   const searchQuery = useSelector(selectSearchQuery);
 
   const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [bookToDelete, setBookToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
 
   // Handle debounced search
   useEffect(() => {
+    const currentLimit = pagination?.limit || 10;
     if (debouncedSearchQuery.trim()) {
       if (debouncedSearchQuery.trim() !== searchQuery) {
         dispatch(setSearchQuery(debouncedSearchQuery.trim()));
-        dispatch(searchBooks({ query: debouncedSearchQuery.trim(), ...filters, page: 1, limit: pagination.limit }));
+        const params = {
+          query: debouncedSearchQuery.trim(),
+          page: 1,
+          limit: currentLimit,
+          ...(filters.category && { category: filters.category }),
+          ...(filters.language && { language: filters.language }),
+          ...(filters.availability && { availability: filters.availability }),
+          ...(filters.sort && { sort: filters.sort }),
+          ...(filters.order && { order: filters.order }),
+        };
+        dispatch(searchBooks(params));
       }
     } else if (debouncedSearchQuery === '' && searchQuery) {
       dispatch(setSearchQuery(''));
-      dispatch(fetchBooks({ ...filters, page: 1, limit: pagination.limit }));
+      const params = {
+        page: 1,
+        limit: currentLimit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(fetchBooks(params));
     }
-  }, [dispatch, debouncedSearchQuery, filters, pagination.limit, searchQuery]);
+  }, [dispatch, debouncedSearchQuery, filters, pagination?.limit, searchQuery]);
 
-  // Fetch books on mount and when filters/pagination change
+  // Fetch books on mount
   useEffect(() => {
     if (!searchQuery && !debouncedSearchQuery.trim()) {
-      dispatch(fetchBooks({ ...filters, page: pagination.page, limit: pagination.limit }));
+      const currentPage = pagination?.page || 1;
+      const currentLimit = pagination?.limit || 10;
+      // Build params object with filters
+      const params = {
+        page: currentPage,
+        limit: currentLimit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(fetchBooks(params));
     }
-  }, [dispatch, filters, pagination.page, pagination.limit, searchQuery, debouncedSearchQuery]);
+  }, [dispatch, filters.category, filters.language, filters.availability, filters.sort, filters.order, pagination?.page, pagination?.limit, searchQuery, debouncedSearchQuery]);
 
   const handleSearch = useCallback(() => {
     if (localSearchQuery.trim()) {
@@ -96,41 +133,103 @@ export default function BooksTab({ onAddBook, onEditBook }) {
 
   const handleFilterChange = (key, value) => {
     dispatch(setFilters({ [key]: value }));
-    dispatch(fetchBooks({ ...filters, [key]: value, page: 1, limit: pagination.limit }));
+    const currentLimit = pagination?.limit || 10;
+    const updatedFilters = { ...filters, [key]: value };
+    const params = {
+      page: 1,
+      limit: currentLimit,
+      ...(updatedFilters.category && { category: updatedFilters.category }),
+      ...(updatedFilters.language && { language: updatedFilters.language }),
+      ...(updatedFilters.availability && { availability: updatedFilters.availability }),
+      ...(updatedFilters.sort && { sort: updatedFilters.sort }),
+      ...(updatedFilters.order && { order: updatedFilters.order }),
+    };
+    dispatch(fetchBooks(params));
   };
 
   const handlePageChange = (newPage) => {
+    const currentLimit = pagination?.limit || 10;
     if (searchQuery) {
-      dispatch(searchBooks({ query: searchQuery, ...filters, page: newPage, limit: pagination.limit }));
+      const params = {
+        query: searchQuery,
+        page: newPage,
+        limit: currentLimit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(searchBooks(params));
     } else {
-      dispatch(fetchBooks({ ...filters, page: newPage, limit: pagination.limit }));
+      const params = {
+        page: newPage,
+        limit: currentLimit,
+        ...(filters.category && { category: filters.category }),
+        ...(filters.language && { language: filters.language }),
+        ...(filters.availability && { availability: filters.availability }),
+        ...(filters.sort && { sort: filters.sort }),
+        ...(filters.order && { order: filters.order }),
+      };
+      dispatch(fetchBooks(params));
     }
   };
 
   const handleSortChange = (sort, order) => {
     dispatch(setFilters({ sort, order }));
+    const currentLimit = pagination?.limit || 10;
+    const updatedFilters = { ...filters, sort, order };
     if (searchQuery) {
-      dispatch(searchBooks({ query: searchQuery, ...filters, sort, order, page: 1, limit: pagination.limit }));
+      const params = {
+        query: searchQuery,
+        page: 1,
+        limit: currentLimit,
+        ...(updatedFilters.category && { category: updatedFilters.category }),
+        ...(updatedFilters.language && { language: updatedFilters.language }),
+        ...(updatedFilters.availability && { availability: updatedFilters.availability }),
+        sort: updatedFilters.sort,
+        order: updatedFilters.order,
+      };
+      dispatch(searchBooks(params));
     } else {
-      dispatch(fetchBooks({ ...filters, sort, order, page: 1, limit: pagination.limit }));
+      const params = {
+        page: 1,
+        limit: currentLimit,
+        ...(updatedFilters.category && { category: updatedFilters.category }),
+        ...(updatedFilters.language && { language: updatedFilters.language }),
+        ...(updatedFilters.availability && { availability: updatedFilters.availability }),
+        sort: updatedFilters.sort,
+        order: updatedFilters.order,
+      };
+      dispatch(fetchBooks(params));
     }
   };
 
-  const handleDeleteBook = async (id, title) => {
-    if (confirm(`Are you sure you want to delete "${title}"?`)) {
-      dispatch(clearError());
-      const result = await dispatch(deleteBook(id));
-      
-      if (deleteBook.fulfilled.match(result)) {
-        showToast('Book deleted successfully!', 'success');
-        if (searchQuery) {
-          dispatch(searchBooks({ query: searchQuery, ...filters, page: pagination.page, limit: pagination.limit }));
-        } else {
-          dispatch(fetchBooks({ ...filters, page: pagination.page, limit: pagination.limit }));
-        }
+  const handleDeleteClick = (id, title) => {
+    setBookToDelete({ id, title });
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!bookToDelete) return;
+    
+    setIsDeleting(true);
+    dispatch(clearError());
+    const result = await dispatch(deleteBook(bookToDelete.id));
+    
+    setIsDeleting(false);
+    setDeleteModalOpen(false);
+    setBookToDelete(null);
+    
+    if (deleteBook.fulfilled.match(result)) {
+      showToast('Book deleted successfully!', 'success');
+      if (searchQuery) {
+        dispatch(searchBooks({ query: searchQuery, ...filters, page: pagination.page, limit: pagination.limit }));
       } else {
-        showToast(result.payload || 'Failed to delete book', 'error');
+        dispatch(fetchBooks({ ...filters, page: pagination.page, limit: pagination.limit }));
       }
+    } else {
+      showToast(result.payload || 'Failed to delete book', 'error');
     }
   };
 
@@ -283,7 +382,7 @@ export default function BooksTab({ onAddBook, onEditBook }) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteBook(book._id, book.title)}
+                            onClick={() => handleDeleteClick(book._id, book.title)}
                             title="Delete"
                           >
                             <Trash2 />
@@ -299,28 +398,41 @@ export default function BooksTab({ onAddBook, onEditBook }) {
         </div>
 
         {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="pagination">
-            <Button
-              variant="outline"
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page === 1 || loading}
-            >
-              Previous
-            </Button>
-            <span className="pagination-info">
-              Page {pagination.page} of {pagination.pages} ({pagination.total} total)
+        {pagination && pagination.pages > 0 && (
+          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', flexDirection:'column' }}>
+            {pagination.pages > 1 ? (
+              <Pagination
+                currentPage={pagination.page || 1}
+                totalPages={pagination.pages}
+                onPageChange={handlePageChange}
+              />
+            ) : (
+              <div style={{ padding: '0.5rem 1rem', color: '#666', fontSize: '0.875rem' }}>
+                Page 1 of 1
+              </div>
+            )}
+            <span className="pagination-info" style={{ color: '#666', fontSize: '0.875rem' }}>
+              ({pagination.total || books.length} total)
             </span>
-            <Button
-              variant="outline"
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page >= pagination.pages || loading}
-            >
-              Next
-            </Button>
           </div>
         )}
       </CardContent>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setBookToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Book"
+        message={bookToDelete ? `Are you sure you want to delete "${bookToDelete.title}"? This action cannot be undone.` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={isDeleting}
+      />
     </Card>
   );
 }

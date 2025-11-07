@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
+import Pagination from '@/components/ui/Pagination';
 import { showToast } from '@/components/ui/ToastContainer';
 import {
   fetchAllBorrows,
@@ -177,24 +178,15 @@ export default function BorrowsTab() {
 
         {/* Pagination */}
         {borrowsPagination.pages > 1 && (
-          <div className="pagination">
-            <Button
-              variant="outline"
-              onClick={() => handlePageChange(borrowsPagination.page - 1)}
-              disabled={borrowsPagination.page === 1 || borrowsLoading}
-            >
-              Previous
-            </Button>
-            <span className="pagination-info">
-              Page {borrowsPagination.page} of {borrowsPagination.pages} ({borrowsPagination.total} total)
+          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', flexDirection:'column' }}>
+            <Pagination
+              currentPage={borrowsPagination.page}
+              totalPages={borrowsPagination.pages}
+              onPageChange={handlePageChange}
+            />
+            <span className="pagination-info" style={{ color: '#666', fontSize: '0.875rem' }}>
+              ({borrowsPagination.total} total)
             </span>
-            <Button
-              variant="outline"
-              onClick={() => handlePageChange(borrowsPagination.page + 1)}
-              disabled={borrowsPagination.page >= borrowsPagination.pages || borrowsLoading}
-            >
-              Next
-            </Button>
           </div>
         )}
       </CardContent>

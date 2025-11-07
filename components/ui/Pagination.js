@@ -31,7 +31,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
       {startPage > 1 && (
         <>
           <Button
-            variant={currentPage === 1 ? 'primary' : 'outline'}
+            variant={currentPage === 1 ? 'default' : 'outline'}
             onClick={() => onPageChange(1)}
           >
             1
@@ -43,7 +43,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
       {pages.map((page) => (
         <Button
           key={page}
-          variant={currentPage === page ? 'primary' : 'outline'}
+          variant={currentPage === page ? 'default' : 'outline'}
           onClick={() => onPageChange(page)}
         >
           {page}
@@ -54,7 +54,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
         <>
           {endPage < totalPages - 1 && <span className="pagination-ellipsis">...</span>}
           <Button
-            variant={currentPage === totalPages ? 'primary' : 'outline'}
+            variant={currentPage === totalPages ? 'default' : 'outline'}
             onClick={() => onPageChange(totalPages)}
           >
             {totalPages}

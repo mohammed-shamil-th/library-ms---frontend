@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import Pagination from '@/components/ui/Pagination';
 import { showToast } from '@/components/ui/ToastContainer';
 import {
@@ -28,6 +30,10 @@ export default function BorrowsTab() {
   const borrowsPagination = useSelector(selectBorrowsPaginationState);
   const borrowsFilters = useSelector(selectBorrowsFiltersState);
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [borrowToDelete, setBorrowToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleFilterChange = (key, value) => {
     dispatch(setBorrowsFilters({ [key]: value }));
     dispatch(fetchAllBorrows({ ...borrowsFilters, [key]: value, page: 1, limit: 10 }));
@@ -48,9 +54,21 @@ export default function BorrowsTab() {
     }
   };
 
-  const handleDeleteBorrow = async (borrowId) => {
-    if (!confirm('Are you sure you want to delete this borrow record?')) return;
-    const result = await dispatch(deleteBorrowAdmin(borrowId));
+  const handleDeleteClick = (borrowId, borrowInfo) => {
+    setBorrowToDelete({ id: borrowId, info: borrowInfo });
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!borrowToDelete) return;
+    
+    setIsDeleting(true);
+    const result = await dispatch(deleteBorrowAdmin(borrowToDelete.id));
+    
+    setIsDeleting(false);
+    setDeleteModalOpen(false);
+    setBorrowToDelete(null);
+    
     if (deleteBorrowAdmin.fulfilled.match(result)) {
       showToast('Borrow record deleted successfully', 'success');
       dispatch(fetchAllBorrows({ ...borrowsFilters, page: borrowsPagination.page, limit: 10 }));
@@ -161,7 +179,10 @@ export default function BorrowsTab() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteBorrow(borrow._id)}
+                            onClick={() => handleDeleteClick(borrow._id, {
+                              user: borrow.user?.name || 'Unknown User',
+                              book: borrow.book?.title || 'Unknown Book'
+                            })}
                             title="Delete"
                           >
                             <Trash2 />
@@ -190,6 +211,22 @@ export default function BorrowsTab() {
           </div>
         )}
       </CardContent>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setBorrowToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Borrow Record"
+        message={borrowToDelete ? `Are you sure you want to delete the borrow record for "${borrowToDelete.info.book}" by "${borrowToDelete.info.user}"? This action cannot be undone.` : ''}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={isDeleting}
+      />
     </Card>
   );
 }

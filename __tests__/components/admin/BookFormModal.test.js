@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
@@ -20,45 +21,40 @@ jest.mock('@/components/ui/ToastContainer', () => ({
 
 // Mock Modal component
 jest.mock('@/components/ui/Modal', () => {
+  const React = require('react');
   return function MockModal({ isOpen, children, onClose, title }) {
     if (!isOpen) return null;
-    return (
-      <div data-testid="modal">
-        {title && <h2>{title}</h2>}
-        {children}
-        <button onClick={onClose}>Close</button>
-      </div>
+    return React.createElement('div', { 'data-testid': 'modal' },
+      title && React.createElement('h2', null, title),
+      children,
+      React.createElement('button', { onClick: onClose }, 'Close')
     );
   };
 });
 
 // Mock Button component
 jest.mock('@/components/ui/Button', () => {
+  const React = require('react');
   return function MockButton({ children, onClick, disabled, type = 'button' }) {
-    return (
-      <button onClick={onClick} disabled={disabled} type={type}>
-        {children}
-      </button>
-    );
+    return React.createElement('button', { onClick, disabled, type }, children);
   };
 });
 
 // Mock FormInput component
 jest.mock('@/components/forms/FormInput', () => {
+  const React = require('react');
   return function MockFormInput({ label, name, value, onChange, onBlur, error, ...props }) {
-    return (
-      <div>
-        <label htmlFor={name}>{label}</label>
-        <input
-          id={name}
-          name={name}
-          value={value || ''}
-          onChange={onChange}
-          onBlur={onBlur}
-          {...props}
-        />
-        {error && <div className="error">{error}</div>}
-      </div>
+    return React.createElement('div', null,
+      React.createElement('label', { htmlFor: name }, label),
+      React.createElement('input', {
+        id: name,
+        name,
+        value: value || '',
+        onChange,
+        onBlur,
+        ...props
+      }),
+      error && React.createElement('div', { className: 'error' }, error)
     );
   };
 });
@@ -67,6 +63,7 @@ const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {
       books: booksReducer,
+      auth: (state = { user: null, token: null, isAuthenticated: false, isAdmin: false }) => state,
     },
     preloadedState: {
       books: {
@@ -77,7 +74,14 @@ const createMockStore = (initialState = {}) => {
         pagination: { page: 1, limit: 10, total: 0, pages: 0 },
         filters: {},
         searchQuery: '',
+        isSearching: false,
         ...initialState,
+      },
+      auth: {
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isAdmin: false,
       },
     },
   });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { fetchUserStats } from '@/store/slices/usersSlice';
@@ -9,6 +9,7 @@ import { selectIsAuthenticated, selectUser } from '@/store/slices/authSlice';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { formatDate } from '@/utils/constants';
 import Skeleton from '@/components/ui/Skeleton';
+import ToastContainer, { showToast } from '@/components/ui/ToastContainer';
 
 export default function UserStatsPage() {
   const dispatch = useDispatch();
@@ -18,16 +19,42 @@ export default function UserStatsPage() {
   const error = useSelector(selectUsersError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const user = useSelector(selectUser);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    
     if (!isAuthenticated) {
       router.push('/login');
       return;
     }
-    if (user?._id) {
-      dispatch(fetchUserStats(user._id));
+    
+    // Get user ID - handle both _id and id properties
+    const userId = user?._id || user?.id;
+    if (userId) {
+      dispatch(fetchUserStats(userId));
     }
-  }, [dispatch, isAuthenticated, router, user?._id]);
+  }, [dispatch, isAuthenticated, router, user, isMounted]);
+
+  useEffect(() => {
+    if (error) {
+      showToast(error || 'Failed to load statistics', 'error');
+    }
+  }, [error]);
+
+  if (!isMounted) {
+    return (
+      <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+        <div className="loading-container" style={{ minHeight: '400px' }}>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return null;
@@ -35,6 +62,7 @@ export default function UserStatsPage() {
 
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+      <ToastContainer />
       <h1 className="dashboard-title">My Statistics</h1>
 
       {loading && !stats ? (
@@ -48,10 +76,21 @@ export default function UserStatsPage() {
             </Card>
           ))}
         </div>
-      ) : error ? (
-        <div className="error-container">
-          <h2>Error</h2>
-          <p>{error}</p>
+      ) : error && !stats ? (
+        <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2 style={{ color: '#dc3545', marginBottom: '1rem' }}>Error Loading Statistics</h2>
+          <p style={{ color: '#666', marginBottom: '1rem' }}>{error}</p>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              const userId = user?._id || user?.id;
+              if (userId) {
+                dispatch(fetchUserStats(userId));
+              }
+            }}
+          >
+            Retry
+          </button>
         </div>
       ) : stats ? (
         <>
@@ -129,7 +168,25 @@ export default function UserStatsPage() {
             </div>
           </div>
         </>
-      ) : null}
+      ) : (
+        <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2 style={{ marginBottom: '1rem' }}>No Statistics Available</h2>
+          <p style={{ color: '#666', marginBottom: '1rem' }}>
+            Statistics will appear here once you start borrowing books.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              const userId = user?._id || user?.id;
+              if (userId) {
+                dispatch(fetchUserStats(userId));
+              }
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
     </div>
   );
 }

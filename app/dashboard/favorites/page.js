@@ -21,8 +21,11 @@ export default function FavoritesPage() {
   const error = useSelector(selectFavoritesError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const [activeTab, setActiveTab] = useState('all');
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+    
     if (!isAuthenticated) {
       router.push('/login');
       return;
@@ -117,6 +120,17 @@ export default function FavoritesPage() {
     }
   };
 
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!isMounted) {
+    return (
+      <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+        <div className="loading-container" style={{ minHeight: '400px' }}>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return null;
   }
@@ -178,7 +192,7 @@ export default function FavoritesPage() {
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">All ({favorites.length})</TabsTrigger>
           <TabsTrigger value="read">Read ({favorites.filter((f) => f.isRead).length})</TabsTrigger>
@@ -187,7 +201,7 @@ export default function FavoritesPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab}>
+        <TabsContent value="all">
           {loading && favorites.length === 0 ? (
             <div className="books-grid">
               {[1, 2, 3, 4].map((i) => (
@@ -200,22 +214,16 @@ export default function FavoritesPage() {
               <p>{error}</p>
               <Button onClick={() => dispatch(fetchFavorites())}>Retry</Button>
             </div>
-          ) : filteredFavorites.length === 0 ? (
+          ) : favorites.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">❤️</div>
               <h3>No Favorites Yet</h3>
-              <p>
-                {activeTab === 'all'
-                  ? "You haven't added any books to your favorites yet."
-                  : activeTab === 'read'
-                  ? "You haven't marked any books as read yet."
-                  : "All your favorite books have been marked as read."}
-              </p>
+              <p>You haven't added any books to your favorites yet.</p>
               <Button onClick={() => router.push('/')}>Browse Books</Button>
             </div>
           ) : (
             <div className="books-grid">
-              {filteredFavorites.map((favorite) => (
+              {favorites.map((favorite) => (
                 <div key={favorite._id} className="favorite-book-card" style={{ position: 'relative' }}>
                   {/* Read Status Badge */}
                   <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', zIndex: 10 }}>
@@ -290,6 +298,180 @@ export default function FavoritesPage() {
                         style={{ flex: 1 }}
                       >
                         {favorite.isRead ? '✓ Mark as Unread' : '✓ Mark as Read'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleRemoveFavorite(favorite._id, favorite.book?.title)
+                        }
+                        style={{ minWidth: '80px' }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="read">
+          {loading && favorites.length === 0 ? (
+            <div className="books-grid">
+              {[1, 2, 3, 4].map((i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="error-container">
+              <h2>Error</h2>
+              <p>{error}</p>
+              <Button onClick={() => dispatch(fetchFavorites())}>Retry</Button>
+            </div>
+          ) : favorites.filter((fav) => fav.isRead).length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📖</div>
+              <h3>No Read Books</h3>
+              <p>You haven't marked any books as read yet.</p>
+              <Button onClick={() => router.push('/')}>Browse Books</Button>
+            </div>
+          ) : (
+            <div className="books-grid">
+              {favorites.filter((fav) => fav.isRead).map((favorite) => (
+                <div key={favorite._id} className="favorite-book-card" style={{ position: 'relative' }}>
+                  {/* Read Status Badge */}
+                  <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', zIndex: 10 }}>
+                    <span
+                      style={{
+                        background: '#10b981',
+                        color: '#fff',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      ✓ Read
+                    </span>
+                  </div>
+
+                  {/* Book Card with read overlay */}
+                  <div style={{ position: 'relative', opacity: 0.85 }}>
+                    <BookCard book={favorite.book} />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'linear-gradient(to bottom, rgba(16, 185, 129, 0.1), transparent)',
+                        pointerEvents: 'none',
+                        borderRadius: '8px',
+                      }}
+                    />
+                  </div>
+
+                  {/* Book Info with Read Date */}
+                  <div style={{ padding: '0.75rem', background: '#f9fafb', borderRadius: '0 0 8px 8px' }}>
+                    {favorite.readAt && (
+                      <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.5rem' }}>
+                        ✓ Read on {new Date(favorite.readAt).toLocaleDateString()}
+                      </div>
+                    )}
+
+                    <div className="favorite-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() =>
+                          handleToggleRead(favorite._id, favorite.isRead, favorite.book?.title)
+                        }
+                        style={{ flex: 1 }}
+                      >
+                        ✓ Mark as Unread
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleRemoveFavorite(favorite._id, favorite.book?.title)
+                        }
+                        style={{ minWidth: '80px' }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="unread">
+          {loading && favorites.length === 0 ? (
+            <div className="books-grid">
+              {[1, 2, 3, 4].map((i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="error-container">
+              <h2>Error</h2>
+              <p>{error}</p>
+              <Button onClick={() => dispatch(fetchFavorites())}>Retry</Button>
+            </div>
+          ) : favorites.filter((fav) => !fav.isRead).length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📚</div>
+              <h3>All Books Read</h3>
+              <p>All your favorite books have been marked as read.</p>
+              <Button onClick={() => router.push('/')}>Browse Books</Button>
+            </div>
+          ) : (
+            <div className="books-grid">
+              {favorites.filter((fav) => !fav.isRead).map((favorite) => (
+                <div key={favorite._id} className="favorite-book-card" style={{ position: 'relative' }}>
+                  {/* Read Status Badge */}
+                  <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', zIndex: 10 }}>
+                    <span
+                      style={{
+                        background: '#f59e0b',
+                        color: '#fff',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      📖 Unread
+                    </span>
+                  </div>
+
+                  {/* Book Card */}
+                  <div style={{ position: 'relative' }}>
+                    <BookCard book={favorite.book} />
+                  </div>
+
+                  {/* Book Info */}
+                  <div style={{ padding: '0.75rem', background: '#f9fafb', borderRadius: '0 0 8px 8px' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginBottom: '0.5rem' }}>
+                      📖 Not read yet
+                    </div>
+
+                    <div className="favorite-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleToggleRead(favorite._id, favorite.isRead, favorite.book?.title)
+                        }
+                        style={{ flex: 1 }}
+                      >
+                        ✓ Mark as Read
                       </Button>
                       <Button
                         variant="outline"

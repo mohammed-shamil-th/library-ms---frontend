@@ -1,11 +1,20 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const TabsContext = createContext();
 
-export function Tabs({ defaultValue, children, className = '' }) {
-  const [activeTab, setActiveTab] = useState(defaultValue);
+export function Tabs({ defaultValue, value, onValueChange, children, className = '' }) {
+  const [internalActiveTab, setInternalActiveTab] = useState(defaultValue || value || '');
+  const activeTab = value !== undefined ? value : internalActiveTab;
+  const setActiveTab = onValueChange || setInternalActiveTab;
+
+  // Sync internal state with external value prop
+  useEffect(() => {
+    if (value !== undefined) {
+      setInternalActiveTab(value);
+    }
+  }, [value]);
 
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>

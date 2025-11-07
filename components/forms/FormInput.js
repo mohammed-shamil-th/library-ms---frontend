@@ -7,9 +7,20 @@ export default function FormInput({
   placeholder,
   required = false,
   formik,
+  value,
+  onChange,
+  onBlur,
+  error,
+  disabled,
   ...props
 }) {
-  const hasError = formik.touched[name] && formik.errors[name];
+  // Support both formik prop and individual props
+  const inputValue = formik ? formik.values[name] : value;
+  const handleChange = formik ? formik.handleChange : onChange;
+  const handleBlur = formik ? formik.handleBlur : onBlur;
+  const hasError = formik 
+    ? formik.touched[name] && formik.errors[name]
+    : error;
 
   return (
     <div style={styles.formGroup}>
@@ -20,18 +31,22 @@ export default function FormInput({
         type={type}
         id={name}
         name={name}
-        value={formik.values[name]}
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
+        value={inputValue || ''}
+        onChange={handleChange}
+        onBlur={handleBlur}
         placeholder={placeholder}
+        disabled={disabled}
         style={{
           ...styles.input,
           ...(hasError ? styles.inputError : {}),
+          ...(disabled ? styles.inputDisabled : {}),
         }}
         {...props}
       />
       {hasError && (
-        <div style={styles.errorText}>{formik.errors[name]}</div>
+        <div style={styles.errorText}>
+          {formik ? formik.errors[name] : error}
+        </div>
       )}
     </div>
   );
@@ -61,6 +76,11 @@ const styles = {
   },
   inputError: {
     borderColor: '#c33',
+  },
+  inputDisabled: {
+    backgroundColor: '#f5f5f5',
+    cursor: 'not-allowed',
+    opacity: 0.6,
   },
   errorText: {
     fontSize: '12px',

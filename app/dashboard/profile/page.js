@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { useFormik } from 'formik';
@@ -25,6 +25,7 @@ export default function ProfilePage() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const user = useSelector(selectUser);
   const favorites = useSelector(selectFavorites);
+  const [isMounted, setIsMounted] = useState(false);
 
   const formik = useFormik({
     enableReinitialize: true,
@@ -46,6 +47,8 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    setIsMounted(true);
+    
     if (!isAuthenticated) {
       router.push('/login');
       return;
@@ -53,6 +56,17 @@ export default function ProfilePage() {
     dispatch(fetchProfile());
     dispatch(fetchFavorites());
   }, [dispatch, isAuthenticated, router]);
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!isMounted) {
+    return (
+      <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+        <div className="loading-container" style={{ minHeight: '400px' }}>
+          <div className="loading-spinner"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return null;

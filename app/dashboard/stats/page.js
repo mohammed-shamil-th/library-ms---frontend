@@ -8,7 +8,7 @@ import { selectUserStats, selectUsersLoading, selectUsersError } from '@/store/s
 import { selectIsAuthenticated, selectUser } from '@/store/slices/authSlice';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { formatDate } from '@/utils/constants';
-import { Skeleton } from '@/components/ui/Skeleton';
+import Skeleton from '@/components/ui/Skeleton';
 
 export default function UserStatsPage() {
   const dispatch = useDispatch();

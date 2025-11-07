@@ -11,6 +11,8 @@ import BookGrid from '@/components/books/BookGrid';
 import BookFilters from '@/components/books/BookFilters';
 import Pagination from '@/components/ui/Pagination';
 import Button from '@/components/ui/Button';
+import { booksAPI, dashboardAPI } from '@/lib/api';
+import { BOOK_CATEGORIES } from '@/utils/constants';
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -24,8 +26,49 @@ export default function Home() {
   const searchQuery = useSelector(selectSearchQuery);
   
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery || '');
+  const [featuredBooks, setFeaturedBooks] = useState([]);
+  const [quickStats, setQuickStats] = useState({ totalBooks: 0, activeMembers: 0 });
+  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
   const limit = 12; // Books per page
+
+  // Fetch featured books and quick stats
+  useEffect(() => {
+    const fetchFeaturedAndStats = async () => {
+      try {
+        // Fetch featured books (most popular or recent)
+        const featuredResponse = await booksAPI.getBooks({ limit: 5, sort: 'createdAt', order: 'desc' });
+        if (featuredResponse.success && featuredResponse.data) {
+          setFeaturedBooks(featuredResponse.data.slice(0, 5));
+        }
+
+        // Fetch quick stats
+        const statsResponse = await booksAPI.getBooks({ limit: 1 });
+        const membersResponse = await dashboardAPI.getActiveMembersCount();
+        
+        if (statsResponse.success) {
+          setQuickStats({
+            totalBooks: statsResponse.pagination?.total || statsResponse.data?.length || 0,
+            activeMembers: membersResponse.data?.activeMembers || 0,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching featured books or stats:', error);
+      }
+    };
+
+    fetchFeaturedAndStats();
+  }, []);
+
+  // Auto-rotate carousel
+  useEffect(() => {
+    if (featuredBooks.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentCarouselIndex((prev) => (prev + 1) % featuredBooks.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [featuredBooks.length]);
 
   // Reset and fetch initial books when filters change
   useEffect(() => {
@@ -139,6 +182,10 @@ export default function Home() {
     router.push(`/books/${bookId}`);
   };
 
+  const handleCategoryClick = (category) => {
+    handleFilterChange('category', category);
+  };
+
   if (isAuthenticated && isAdmin) {
     return null;
   }
@@ -152,6 +199,193 @@ export default function Home() {
           <p className="home-hero-text">
             Browse our extensive collection of books and find your perfect match
           </p>
+        </div>
+
+        {/* Quick Statistics */}
+        <div className="quick-stats" style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '1.5rem', 
+          marginBottom: '2rem' 
+        }}>
+          <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#4a90e2', marginBottom: '0.5rem' }}>
+              {quickStats.totalBooks}
+            </div>
+            <div style={{ color: '#666' }}>Total Books</div>
+          </div>
+          <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem' }}>
+              {quickStats.activeMembers}
+            </div>
+            <div style={{ color: '#666' }}>Active Members</div>
+          </div>
+        </div>
+
+        {/* Featured Books Carousel */}
+        {featuredBooks.length > 0 && (
+          <div className="featured-carousel" style={{ marginBottom: '3rem' }}>
+            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 'bold' }}>Featured Books</h2>
+            <div className="carousel-container" style={{ position: 'relative', overflow: 'hidden', borderRadius: '8px' }}>
+              <div 
+                className="carousel-track" 
+                style={{ 
+                  display: 'flex', 
+                  transform: `translateX(-${currentCarouselIndex * 100}%)`,
+                  transition: 'transform 0.5s ease-in-out'
+                }}
+              >
+                {featuredBooks.map((book) => (
+                  <div 
+                    key={book._id} 
+                    className="carousel-slide" 
+                    style={{ 
+                      minWidth: '100%', 
+                      display: 'flex', 
+                      gap: '2rem', 
+                      padding: '2rem',
+                      backgroundColor: '#fff',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleBookClick(book._id)}
+                  >
+                    <img 
+                      src={book.coverImage || 'https://via.placeholder.com/200x300'} 
+                      alt={book.title}
+                      style={{ width: '200px', height: '300px', objectFit: 'cover', borderRadius: '4px' }}
+                    />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{book.title}</h3>
+                      <p style={{ color: '#666', marginBottom: '1rem' }}>by {book.author}</p>
+                      <p style={{ marginBottom: '1rem', lineHeight: '1.6' }}>{book.description?.substring(0, 200)}...</p>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <span className="badge" style={{ 
+                          padding: '0.25rem 0.75rem', 
+                          borderRadius: '4px',
+                          backgroundColor: book.availableCopies > 0 ? '#28a745' : '#dc3545',
+                          color: '#fff'
+                        }}>
+                          {book.availableCopies > 0 ? 'Available' : 'Unavailable'}
+                        </span>
+                        <span style={{ color: '#666' }}>{book.category}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {featuredBooks.length > 1 && (
+                <>
+                  <button
+                    className="carousel-btn carousel-btn-prev"
+                    onClick={() => setCurrentCarouselIndex((prev) => (prev - 1 + featuredBooks.length) % featuredBooks.length)}
+                    style={{
+                      position: 'absolute',
+                      left: '1rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      cursor: 'pointer',
+                      fontSize: '1.2rem'
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    className="carousel-btn carousel-btn-next"
+                    onClick={() => setCurrentCarouselIndex((prev) => (prev + 1) % featuredBooks.length)}
+                    style={{
+                      position: 'absolute',
+                      right: '1rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      cursor: 'pointer',
+                      fontSize: '1.2rem'
+                    }}
+                  >
+                    ›
+                  </button>
+                  <div className="carousel-indicators" style={{ 
+                    position: 'absolute', 
+                    bottom: '1rem', 
+                    left: '50%', 
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    gap: '0.5rem'
+                  }}>
+                    {featuredBooks.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentCarouselIndex(index)}
+                        style={{
+                          width: currentCarouselIndex === index ? '24px' : '8px',
+                          height: '8px',
+                          borderRadius: '4px',
+                          border: 'none',
+                          backgroundColor: currentCarouselIndex === index ? '#4a90e2' : 'rgba(255,255,255,0.5)',
+                          cursor: 'pointer',
+                          transition: 'width 0.3s ease'
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Book Categories Navigation */}
+        <div className="categories-section" style={{ marginBottom: '2rem' }}>
+          <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 'bold' }}>Browse by Category</h2>
+          <div className="categories-grid" style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
+            gap: '1rem' 
+          }}>
+            {BOOK_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                onClick={() => handleCategoryClick(category)}
+                className="category-card"
+                style={{
+                  padding: '1rem',
+                  backgroundColor: filters.category === category ? '#4a90e2' : '#fff',
+                  color: filters.category === category ? '#fff' : '#333',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  textAlign: 'center',
+                  fontWeight: '500'
+                }}
+                onMouseEnter={(e) => {
+                  if (filters.category !== category) {
+                    e.target.style.backgroundColor = '#f5f5f5';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (filters.category !== category) {
+                    e.target.style.backgroundColor = '#fff';
+                  }
+                }}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Search Bar */}

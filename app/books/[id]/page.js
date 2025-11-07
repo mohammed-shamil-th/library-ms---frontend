@@ -38,6 +38,10 @@ export default function BookDetailPage() {
   const [favoriteId, setFavoriteId] = useState(null);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+  
+  useEffect(() => {
     if (id) {
       dispatch(fetchBookById(id));
       dispatch(fetchRelatedBooks(id));

@@ -29,7 +29,7 @@ import {
   clearCurrentBook,
 } from '@/store/slices/booksSlice';
 
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 
 const BOOK_CATEGORIES = [
   'Fiction',
@@ -242,18 +242,19 @@ export default function BooksTab({ onAddBook, onEditBook }) {
         {/* Search and Filters */}
         <div className="books-controls">
           <div className="search-bar" style={{ position: 'relative', flex: 1, maxWidth: '100%' }}>
-            <span style={{ 
-              position: 'absolute', 
-              left: '12px', 
-              top: '50%', 
-              transform: 'translateY(-50%)',
-              color: '#999',
-              fontSize: '1rem',
-              pointerEvents: 'none',
-              zIndex: 1
-            }}>
-              🔍
-            </span>
+            <Search 
+              size={18} 
+              strokeWidth={2}
+              style={{ 
+                position: 'absolute', 
+                left: '12px', 
+                top: '50%', 
+                transform: 'translateY(-50%)',
+                color: '#9ca3af',
+                pointerEvents: 'none',
+                zIndex: 1
+              }}
+            />
             <input
               type="text"
               placeholder="Search by title, author, or ISBN..."

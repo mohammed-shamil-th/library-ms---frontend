@@ -19,7 +19,6 @@ import {
   clearError,
   clearCurrentBook,
   fetchBooks,
-  searchBooks,
 } from '@/store/slices/booksSlice';
 
 const BOOK_CATEGORIES = [
@@ -181,11 +180,16 @@ export default function BookFormModal({ isOpen, onClose, editingBookId, setEditi
           setEditingBookId(null);
           resetForm();
           dispatch(clearCurrentBook());
+          const params = {
+            ...filters,
+            page: pagination.page,
+            limit: pagination.limit,
+          };
+          // Include search if it exists
           if (searchQuery) {
-            dispatch(searchBooks({ query: searchQuery, ...filters, page: pagination.page, limit: pagination.limit }));
-          } else {
-            dispatch(fetchBooks({ ...filters, page: pagination.page, limit: pagination.limit }));
+            params.search = searchQuery;
           }
+          dispatch(fetchBooks(params));
         } else {
           showToast(result.payload || 'Failed to update book', 'error');
         }
@@ -195,11 +199,16 @@ export default function BookFormModal({ isOpen, onClose, editingBookId, setEditi
           showToast('Book added successfully!', 'success');
           onClose();
           resetForm();
+          const params = {
+            ...filters,
+            page: 1,
+            limit: pagination.limit,
+          };
+          // Include search if it exists
           if (searchQuery) {
-            dispatch(searchBooks({ query: searchQuery, ...filters, page: 1, limit: pagination.limit }));
-          } else {
-            dispatch(fetchBooks({ ...filters, page: 1, limit: pagination.limit }));
+            params.search = searchQuery;
           }
+          dispatch(fetchBooks(params));
         } else {
           showToast(result.payload || 'Failed to add book', 'error');
         }

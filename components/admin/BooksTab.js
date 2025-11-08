@@ -15,7 +15,6 @@ import {
   fetchBooks,
   fetchBookById,
   deleteBook,
-  searchBooks,
   selectBooks,
   selectCurrentBook,
   selectBooksLoading,
@@ -73,7 +72,7 @@ export default function BooksTab({ onAddBook, onEditBook }) {
       if (debouncedSearchQuery.trim() !== searchQuery) {
         dispatch(setSearchQuery(debouncedSearchQuery.trim()));
         const params = {
-          query: debouncedSearchQuery.trim(),
+          search: debouncedSearchQuery.trim(), // Use 'search' parameter
           page: 1,
           limit: currentLimit,
           ...(filters.category && { category: filters.category }),
@@ -82,7 +81,7 @@ export default function BooksTab({ onAddBook, onEditBook }) {
           ...(filters.sort && { sort: filters.sort }),
           ...(filters.order && { order: filters.order }),
         };
-        dispatch(searchBooks(params));
+        dispatch(fetchBooks(params)); // Use fetchBooks instead of searchBooks
       }
     } else if (debouncedSearchQuery === '' && searchQuery) {
       dispatch(setSearchQuery(''));
@@ -137,60 +136,40 @@ export default function BooksTab({ onAddBook, onEditBook }) {
 
   const handlePageChange = (newPage) => {
     const currentLimit = pagination?.limit || 10;
+    const params = {
+      page: newPage,
+      limit: currentLimit,
+      ...(filters.category && { category: filters.category }),
+      ...(filters.language && { language: filters.language }),
+      ...(filters.availability && { availability: filters.availability }),
+      ...(filters.sort && { sort: filters.sort }),
+      ...(filters.order && { order: filters.order }),
+    };
+    // Include search if it exists
     if (searchQuery) {
-      const params = {
-        query: searchQuery,
-        page: newPage,
-        limit: currentLimit,
-        ...(filters.category && { category: filters.category }),
-        ...(filters.language && { language: filters.language }),
-        ...(filters.availability && { availability: filters.availability }),
-        ...(filters.sort && { sort: filters.sort }),
-        ...(filters.order && { order: filters.order }),
-      };
-      dispatch(searchBooks(params));
-    } else {
-      const params = {
-        page: newPage,
-        limit: currentLimit,
-        ...(filters.category && { category: filters.category }),
-        ...(filters.language && { language: filters.language }),
-        ...(filters.availability && { availability: filters.availability }),
-        ...(filters.sort && { sort: filters.sort }),
-        ...(filters.order && { order: filters.order }),
-      };
-      dispatch(fetchBooks(params));
+      params.search = searchQuery;
     }
+    dispatch(fetchBooks(params)); // Always use fetchBooks
   };
 
   const handleSortChange = (sort, order) => {
     dispatch(setFilters({ sort, order }));
     const currentLimit = pagination?.limit || 10;
     const updatedFilters = { ...filters, sort, order };
+    const params = {
+      page: 1,
+      limit: currentLimit,
+      ...(updatedFilters.category && { category: updatedFilters.category }),
+      ...(updatedFilters.language && { language: updatedFilters.language }),
+      ...(updatedFilters.availability && { availability: updatedFilters.availability }),
+      sort: updatedFilters.sort,
+      order: updatedFilters.order || 'asc',
+    };
+    // Include search if it exists
     if (searchQuery) {
-      const params = {
-        query: searchQuery,
-        page: 1,
-        limit: currentLimit,
-        ...(updatedFilters.category && { category: updatedFilters.category }),
-        ...(updatedFilters.language && { language: updatedFilters.language }),
-        ...(updatedFilters.availability && { availability: updatedFilters.availability }),
-        sort: updatedFilters.sort,
-        order: updatedFilters.order,
-      };
-      dispatch(searchBooks(params));
-    } else {
-      const params = {
-        page: 1,
-        limit: currentLimit,
-        ...(updatedFilters.category && { category: updatedFilters.category }),
-        ...(updatedFilters.language && { language: updatedFilters.language }),
-        ...(updatedFilters.availability && { availability: updatedFilters.availability }),
-        sort: updatedFilters.sort,
-        order: updatedFilters.order,
-      };
-      dispatch(fetchBooks(params));
+      params.search = searchQuery;
     }
+    dispatch(fetchBooks(params)); // Always use fetchBooks
   };
 
   const handleDeleteClick = (id, title) => {
@@ -211,11 +190,16 @@ export default function BooksTab({ onAddBook, onEditBook }) {
     
     if (deleteBook.fulfilled.match(result)) {
       showToast('Book deleted successfully!', 'success');
+      const params = {
+        ...filters,
+        page: pagination.page,
+        limit: pagination.limit,
+      };
+      // Include search if it exists
       if (searchQuery) {
-        dispatch(searchBooks({ query: searchQuery, ...filters, page: pagination.page, limit: pagination.limit }));
-      } else {
-        dispatch(fetchBooks({ ...filters, page: pagination.page, limit: pagination.limit }));
+        params.search = searchQuery;
       }
+      dispatch(fetchBooks(params));
     } else {
       showToast(result.payload || 'Failed to delete book', 'error');
     }

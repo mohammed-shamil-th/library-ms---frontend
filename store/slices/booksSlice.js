@@ -6,7 +6,14 @@ export const fetchBooks = createAsyncThunk(
   'books/fetchBooks',
   async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await booksAPI.getBooks(params);
+      // Support both 'query' (from old searchBooks) and 'search' parameter
+      const apiParams = { ...params };
+      if (apiParams.query) {
+        apiParams.search = apiParams.query;
+        delete apiParams.query;
+      }
+      
+      const response = await booksAPI.getBooks(apiParams);
       // The API returns { success: true, data: [...], pagination: {...} }
       // booksAPI.getBooks already returns response.data, so response is the full object
       return response;
@@ -74,19 +81,20 @@ export const deleteBook = createAsyncThunk(
   }
 );
 
-export const searchBooks = createAsyncThunk(
-  'books/searchBooks',
-  async ({ query, params = {} }, { rejectWithValue }) => {
-    try {
-      const response = await booksAPI.searchBooks(query, params);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Failed to search books'
-      );
-    }
-  }
-);
+// searchBooks is deprecated - use fetchBooks with search parameter instead
+// export const searchBooks = createAsyncThunk(
+//   'books/searchBooks',
+//   async ({ query, params = {} }, { rejectWithValue }) => {
+//     try {
+//       const response = await booksAPI.getBooks({ search: query, ...params });
+//       return response;
+//     } catch (error) {
+//       return rejectWithValue(
+//         error.response?.data?.message || 'Failed to search books'
+//       );
+//     }
+//   }
+// );
 
 export const updateBookStock = createAsyncThunk(
   'books/updateBookStock',
@@ -162,44 +170,38 @@ const booksSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Fetch Books
+      // Fetch Books (unified - handles both listing and search)
       .addCase(fetchBooks.pending, (state) => {
         state.loading = true;
         state.error = null;
-        state.isSearching = false;
       })
       .addCase(fetchBooks.fulfilled, (state, action) => {
         state.loading = false;
         const payload = action.payload;
-        const newBooks = payload.data || payload.books || payload;
-        
-        // Check if we should append (for infinite scroll) or replace
-        const shouldAppend = action.meta?.arg?.append === true;
-        
-        if (shouldAppend && Array.isArray(newBooks)) {
-          // Append new books to existing ones (avoid duplicates)
-          const existingIds = new Set(state.books.map(b => b._id));
-          const uniqueNewBooks = newBooks.filter(b => !existingIds.has(b._id));
-          state.books = [...state.books, ...uniqueNewBooks];
-        } else {
-          // Replace books (initial load or filter change)
-          state.books = newBooks;
-        }
+        state.books = payload.data || [];
         
         if (payload.pagination) {
           state.pagination = payload.pagination;
-        } else if (Array.isArray(state.books) && state.books.length > 0) {
-          // If pagination is missing but we have books, set a default pagination
-          state.pagination = {
-            ...state.pagination,
-            total: payload.total || state.books.length,
-          };
         }
+        
+        // Set search query if it exists in params
+        const searchParam = action.meta?.arg?.search || action.meta?.arg?.query;
+        if (searchParam) {
+          state.searchQuery = searchParam;
+          state.isSearching = true;
+        } else {
+          // Only clear search if explicitly no search param
+          if (action.meta?.arg?.search === '' || action.meta?.arg?.search === undefined) {
+            state.isSearching = false;
+          }
+        }
+        
         state.error = null;
       })
       .addCase(fetchBooks.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        state.isSearching = false;
       })
       // Fetch Book By ID
       .addCase(fetchBookById.pending, (state) => {
@@ -267,46 +269,7 @@ const booksSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      // Search Books
-      .addCase(searchBooks.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.isSearching = true;
-      })
-      .addCase(searchBooks.fulfilled, (state, action) => {
-        state.loading = false;
-        const payload = action.payload;
-        const newBooks = payload.data || payload.books || payload;
-        
-        // Check if we should append (for infinite scroll) or replace
-        const shouldAppend = action.meta?.arg?.append === true;
-        
-        if (shouldAppend && Array.isArray(newBooks)) {
-          // Append new books to existing ones (avoid duplicates)
-          const existingIds = new Set(state.books.map(b => b._id));
-          const uniqueNewBooks = newBooks.filter(b => !existingIds.has(b._id));
-          state.books = [...state.books, ...uniqueNewBooks];
-        } else {
-          // Replace books (initial search or filter change)
-          state.books = newBooks;
-        }
-        
-        if (payload.pagination) {
-          state.pagination = payload.pagination;
-        } else if (Array.isArray(state.books) && state.books.length > 0) {
-          // If pagination is missing but we have books, set a default pagination
-          state.pagination = {
-            ...state.pagination,
-            total: payload.total || state.books.length,
-          };
-        }
-        state.error = null;
-      })
-      .addCase(searchBooks.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-        state.isSearching = false;
-      })
+      // Search Books - removed (now handled by fetchBooks)
       // Update Book Stock
       .addCase(updateBookStock.pending, (state) => {
         state.loading = true;

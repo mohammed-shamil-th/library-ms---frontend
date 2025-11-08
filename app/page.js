@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { selectIsAuthenticated, selectIsAdmin } from '@/store/slices/authSlice';
-import { fetchBooks, searchBooks, setFilters, setSearchQuery } from '@/store/slices/booksSlice';
+import { fetchBooks, setFilters, setSearchQuery } from '@/store/slices/booksSlice';
 import { selectBooks, selectBooksLoading, selectBooksPagination, selectBooksFilters, selectSearchQuery } from '@/store/slices/booksSlice';
 import { useDebounce } from '@/hooks/useDebounce';
 import BookGrid from '@/components/books/BookGrid';
@@ -91,12 +91,12 @@ export default function Home() {
     }
   }, [dispatch, isAuthenticated, isAdmin, router, filters.category, filters.language, filters.availability, filters.sort, filters.order]);
 
-  // Handle debounced search
+          // Handle debounced search
   useEffect(() => {
     if (debouncedSearchQuery.trim()) {
       dispatch(setSearchQuery(debouncedSearchQuery.trim()));
       const params = {
-        query: debouncedSearchQuery.trim(),
+        search: debouncedSearchQuery.trim(), // Use 'search' parameter
         page: 1,
         limit,
         ...(filters.category && { category: filters.category }),
@@ -105,7 +105,7 @@ export default function Home() {
         ...(filters.sort && { sort: filters.sort }),
         ...(filters.order && { order: filters.order }),
       };
-      dispatch(searchBooks(params));
+      dispatch(fetchBooks(params)); // Use fetchBooks instead of searchBooks
     } else if (debouncedSearchQuery === '' && searchQuery) {
       dispatch(setSearchQuery(''));
       const params = {
@@ -133,6 +133,10 @@ export default function Home() {
       ...(updatedFilters.sort && { sort: updatedFilters.sort }),
       ...(updatedFilters.order && { order: updatedFilters.order }),
     };
+    // Include search if it exists
+    if (searchQuery) {
+      params.search = searchQuery;
+    }
     dispatch(fetchBooks(params));
   };
 
@@ -152,30 +156,20 @@ export default function Home() {
   };
 
   const handlePageChange = (newPage) => {
+    const params = {
+      page: newPage,
+      limit,
+      ...(filters.category && { category: filters.category }),
+      ...(filters.language && { language: filters.language }),
+      ...(filters.availability && { availability: filters.availability }),
+      ...(filters.sort && { sort: filters.sort }),
+      ...(filters.order && { order: filters.order }),
+    };
+    // Include search if it exists
     if (searchQuery) {
-      const params = {
-        query: searchQuery,
-        page: newPage,
-        limit,
-        ...(filters.category && { category: filters.category }),
-        ...(filters.language && { language: filters.language }),
-        ...(filters.availability && { availability: filters.availability }),
-        ...(filters.sort && { sort: filters.sort }),
-        ...(filters.order && { order: filters.order }),
-      };
-      dispatch(searchBooks(params));
-    } else {
-      const params = {
-        page: newPage,
-        limit,
-        ...(filters.category && { category: filters.category }),
-        ...(filters.language && { language: filters.language }),
-        ...(filters.availability && { availability: filters.availability }),
-        ...(filters.sort && { sort: filters.sort }),
-        ...(filters.order && { order: filters.order }),
-      };
-      dispatch(fetchBooks(params));
+      params.search = searchQuery;
     }
+    dispatch(fetchBooks(params)); // Always use fetchBooks
   };
 
   const handleBookClick = (bookId) => {

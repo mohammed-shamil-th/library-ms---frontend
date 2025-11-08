@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { selectIsAuthenticated, selectIsAdmin } from '@/store/slices/authSlice';
@@ -11,8 +11,9 @@ import BookGrid from '@/components/books/BookGrid';
 import BookFilters from '@/components/books/BookFilters';
 import Pagination from '@/components/ui/Pagination';
 import Button from '@/components/ui/Button';
-import { booksAPI, dashboardAPI } from '@/lib/api';
+import { booksAPI } from '@/lib/api';
 import { BOOK_CATEGORIES } from '@/utils/constants';
+import { Search } from 'lucide-react';
 
 export default function Home() {
   const dispatch = useDispatch();
@@ -25,14 +26,25 @@ export default function Home() {
   const filters = useSelector(selectBooksFilters);
   const searchQuery = useSelector(selectSearchQuery);
   
-  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery || '');
+  const [heroSearchQuery, setHeroSearchQuery] = useState(''); // Hero banner quick search
+  const [listingSearchQuery, setListingSearchQuery] = useState(searchQuery || ''); // Book listing search (filtering)
   const [featuredBooks, setFeaturedBooks] = useState([]);
-  const [quickStats, setQuickStats] = useState({ totalBooks: 0, activeMembers: 0 });
+  const [availableBooksCount, setAvailableBooksCount] = useState(0);
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
-  const debouncedSearchQuery = useDebounce(localSearchQuery, 500);
+  const [quickSearchResults, setQuickSearchResults] = useState([]);
+  const [quickSearchLoading, setQuickSearchLoading] = useState(false);
+  const [showQuickSearchDropdown, setShowQuickSearchDropdown] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const heroSearchRef = useRef(null);
+  const heroSearchInputRef = useRef(null);
+  const debouncedHeroSearch = useDebounce(heroSearchQuery, 400); // Faster debounce for quick search
+  const debouncedListingSearch = useDebounce(listingSearchQuery, 500);
   const limit = 12; // Books per page
 
-  // Fetch featured books and quick stats
+  // Active search query (only from listing search, not hero search)
+  const activeSearchQuery = listingSearchQuery.trim();
+
+  // Fetch featured books and available books count
   useEffect(() => {
     const fetchFeaturedAndStats = async () => {
       try {
@@ -42,15 +54,14 @@ export default function Home() {
           setFeaturedBooks(featuredResponse.data.slice(0, 5));
         }
 
-        // Fetch quick stats
-        const statsResponse = await booksAPI.getBooks({ limit: 1 });
-        const membersResponse = await dashboardAPI.getActiveMembersCount();
+        // Fetch available books count (books with availableCopies > 0)
+        const availableBooksResponse = await booksAPI.getBooks({ 
+          availability: 'available',
+          limit: 1 
+        });
         
-        if (statsResponse.success) {
-          setQuickStats({
-            totalBooks: statsResponse.pagination?.total || statsResponse.data?.length || 0,
-            activeMembers: membersResponse.data?.activeMembers || 0,
-          });
+        if (availableBooksResponse.success) {
+          setAvailableBooksCount(availableBooksResponse.pagination?.total || 0);
         }
       } catch (error) {
         console.error('Error fetching featured books or stats:', error);
@@ -62,22 +73,23 @@ export default function Home() {
 
   // Auto-rotate carousel
   useEffect(() => {
-    if (featuredBooks.length > 0) {
-      const interval = setInterval(() => {
-        setCurrentCarouselIndex((prev) => (prev + 1) % featuredBooks.length);
-      }, 5000);
-      return () => clearInterval(interval);
-    }
+    if (featuredBooks.length === 0) return;
+    
+    const interval = setInterval(() => {
+      setCurrentCarouselIndex((prev) => (prev + 1) % featuredBooks.length);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [featuredBooks.length]);
 
-  // Reset and fetch initial books when filters change
+  // Reset and fetch initial books when filters change (only if no active listing search)
   useEffect(() => {
     if (isAuthenticated && isAdmin) {
       router.push('/admin/dashboard');
       return;
     }
     
-    if (!searchQuery && !debouncedSearchQuery.trim()) {
+    // Only auto-fetch if no listing search is active
+    if (!activeSearchQuery) {
       const params = {
         page: pagination?.page || 1,
         limit,
@@ -89,14 +101,103 @@ export default function Home() {
       };
       dispatch(fetchBooks(params));
     }
-  }, [dispatch, isAuthenticated, isAdmin, router, filters.category, filters.language, filters.availability, filters.sort, filters.order]);
+  }, [dispatch, isAuthenticated, isAdmin, router, filters.category, filters.language, filters.availability, filters.sort, filters.order, activeSearchQuery]);
 
-          // Handle debounced search
+  // Handle quick search (hero banner dropdown)
   useEffect(() => {
-    if (debouncedSearchQuery.trim()) {
-      dispatch(setSearchQuery(debouncedSearchQuery.trim()));
+    const fetchQuickSearchResults = async () => {
+      const searchTerm = debouncedHeroSearch.trim();
+      
+      // Only search if at least 1 character
+      if (searchTerm.length < 1) {
+        setQuickSearchResults([]);
+        setShowQuickSearchDropdown(false);
+        return;
+      }
+
+      setQuickSearchLoading(true);
+      try {
+        const response = await booksAPI.getBooks({ 
+          search: searchTerm, 
+          limit: 12 
+        });
+        
+        if (response.success && response.data) {
+          setQuickSearchResults(response.data);
+          setShowQuickSearchDropdown(true);
+        } else {
+          setQuickSearchResults([]);
+          setShowQuickSearchDropdown(true);
+        }
+      } catch (error) {
+        console.error('Error fetching quick search results:', error);
+        setQuickSearchResults([]);
+        setShowQuickSearchDropdown(false);
+      } finally {
+        setQuickSearchLoading(false);
+      }
+    };
+
+    fetchQuickSearchResults();
+  }, [debouncedHeroSearch]);
+
+  // Update dropdown position when it should be shown
+  useEffect(() => {
+    const updateDropdownPosition = () => {
+      if (heroSearchInputRef.current) {
+        const rect = heroSearchInputRef.current.getBoundingClientRect();
+        // For fixed positioning, use getBoundingClientRect() directly (no scroll offset needed)
+        setDropdownPosition({
+          top: rect.bottom + 8, // 8px gap below input
+          left: rect.left,
+          width: rect.width
+        });
+      }
+    };
+
+    if (showQuickSearchDropdown && heroSearchInputRef.current) {
+      updateDropdownPosition();
+      // Update on scroll and resize to keep dropdown aligned with input
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      window.addEventListener('resize', updateDropdownPosition);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+      window.removeEventListener('resize', updateDropdownPosition);
+    };
+  }, [showQuickSearchDropdown, quickSearchResults, heroSearchQuery]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      const isClickInsideSearch = heroSearchRef.current?.contains(target);
+      const isClickInsideDropdown = target.closest('.quick-search-dropdown');
+      
+      if (!isClickInsideSearch && !isClickInsideDropdown) {
+        setShowQuickSearchDropdown(false);
+      }
+    };
+
+    if (showQuickSearchDropdown) {
+      // Use a small delay to avoid closing immediately when opening
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showQuickSearchDropdown]);
+
+  // Handle listing search (filtering search in book listing section)
+  useEffect(() => {
+    if (debouncedListingSearch.trim()) {
+      dispatch(setSearchQuery(debouncedListingSearch.trim()));
       const params = {
-        search: debouncedSearchQuery.trim(), // Use 'search' parameter
+        search: debouncedListingSearch.trim(),
         page: 1,
         limit,
         ...(filters.category && { category: filters.category }),
@@ -105,8 +206,8 @@ export default function Home() {
         ...(filters.sort && { sort: filters.sort }),
         ...(filters.order && { order: filters.order }),
       };
-      dispatch(fetchBooks(params)); // Use fetchBooks instead of searchBooks
-    } else if (debouncedSearchQuery === '' && searchQuery) {
+      dispatch(fetchBooks(params));
+    } else if (debouncedListingSearch === '' && listingSearchQuery === '') {
       dispatch(setSearchQuery(''));
       const params = {
         page: 1,
@@ -119,7 +220,7 @@ export default function Home() {
       };
       dispatch(fetchBooks(params));
     }
-  }, [dispatch, debouncedSearchQuery, filters, searchQuery, limit]);
+  }, [dispatch, debouncedListingSearch, listingSearchQuery, filters, limit]);
 
   const handleFilterChange = (key, value) => {
     dispatch(setFilters({ [key]: value }));
@@ -133,9 +234,9 @@ export default function Home() {
       ...(updatedFilters.sort && { sort: updatedFilters.sort }),
       ...(updatedFilters.order && { order: updatedFilters.order }),
     };
-    // Include search if it exists
-    if (searchQuery) {
-      params.search = searchQuery;
+    // Include listing search if it exists
+    if (activeSearchQuery) {
+      params.search = activeSearchQuery;
     }
     dispatch(fetchBooks(params));
   };
@@ -152,6 +253,10 @@ export default function Home() {
       sort: updatedFilters.sort,
       order: updatedFilters.order || 'asc',
     };
+    // Include listing search if it exists
+    if (activeSearchQuery) {
+      params.search = activeSearchQuery;
+    }
     dispatch(fetchBooks(params));
   };
 
@@ -165,11 +270,17 @@ export default function Home() {
       ...(filters.sort && { sort: filters.sort }),
       ...(filters.order && { order: filters.order }),
     };
-    // Include search if it exists
-    if (searchQuery) {
-      params.search = searchQuery;
+    // Include listing search if it exists
+    if (activeSearchQuery) {
+      params.search = activeSearchQuery;
     }
-    dispatch(fetchBooks(params)); // Always use fetchBooks
+    dispatch(fetchBooks(params));
+  };
+
+  const handleQuickSearchResultClick = (bookId) => {
+    setShowQuickSearchDropdown(false);
+    setHeroSearchQuery('');
+    router.push(`/books/${bookId}`);
   };
 
   const handleBookClick = (bookId) => {
@@ -186,40 +297,146 @@ export default function Home() {
 
   return (
     <div className="home-page">
-      <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
-        {/* Hero Section */}
-        <div className="home-hero-section">
-          <h1 className="home-hero-title">Discover Your Next Great Read</h1>
-          <p className="home-hero-text">
-            Browse our extensive collection of books and find your perfect match
-          </p>
-        </div>
-
-        {/* Quick Statistics */}
-        <div className="quick-stats" style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '1.5rem', 
-          marginBottom: '2rem' 
-        }}>
-          <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#4a90e2', marginBottom: '0.5rem' }}>
-              {quickStats.totalBooks}
-            </div>
-            <div style={{ color: '#666' }}>Total Books</div>
+      {/* Hero Section with Full-Width Banner */}
+      <div className="hero-banner">
+        <div className="hero-banner-background"></div>
+        <div className="hero-banner-overlay"></div>
+        <div className="hero-banner-content">
+          <h1 className="hero-title">Discover Your Next Great Read</h1>
+          
+          {/* Books Available Badge */}
+          <div className="hero-badge">
+            <span className="hero-badge-icon">📚</span>
+            <span className="hero-badge-text">
+              {availableBooksCount > 0 ? `${availableBooksCount}+` : '0'} Books Available
+            </span>
           </div>
-          <div className="card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem' }}>
-              {quickStats.activeMembers}
+          
+          {/* Hero Search Bar - Quick Search */}
+          <div className="hero-search-container" ref={heroSearchRef}>
+            <div className="hero-search-wrapper">
+              <Search className="hero-search-icon" size={20} strokeWidth={2} />
+              <input
+                ref={heroSearchInputRef}
+                type="text"
+                placeholder="Quick search books..."
+                value={heroSearchQuery}
+                onChange={(e) => {
+                  setHeroSearchQuery(e.target.value);
+                  if (e.target.value.trim().length >= 1) {
+                    setShowQuickSearchDropdown(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (quickSearchResults.length > 0 && heroSearchQuery.trim().length >= 1) {
+                    setShowQuickSearchDropdown(true);
+                  }
+                }}
+                className="hero-search-input"
+              />
+              {heroSearchQuery && (
+                <button
+                  onClick={() => {
+                    setHeroSearchQuery('');
+                    setQuickSearchResults([]);
+                    setShowQuickSearchDropdown(false);
+                  }}
+                  className="hero-search-clear"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
             </div>
-            <div style={{ color: '#666' }}>Active Members</div>
+            
+            {/* Quick Search Dropdown - Rendered outside banner to avoid overflow clipping */}
+            {showQuickSearchDropdown && (
+              <div 
+                className="quick-search-dropdown"
+                style={{
+                  position: 'fixed',
+                  top: `${dropdownPosition.top}px`,
+                  left: `${dropdownPosition.left}px`,
+                  width: `${dropdownPosition.width}px`,
+                  zIndex: 10000
+                }}
+              >
+                {quickSearchLoading ? (
+                  <div className="quick-search-skeleton">
+                    {[1, 2, 3, 4, 5].map((index) => (
+                      <div key={index} className="quick-search-skeleton-item">
+                        <div className="quick-search-skeleton-image"></div>
+                        <div className="quick-search-skeleton-content">
+                          <div className="quick-search-skeleton-line skeleton-title"></div>
+                          <div className="quick-search-skeleton-line skeleton-author"></div>
+                          <div className="quick-search-skeleton-line skeleton-description"></div>
+                          <div className="quick-search-skeleton-line skeleton-description-short"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : quickSearchResults.length > 0 ? (
+                  <div className="quick-search-results">
+                    {quickSearchResults.map((book) => (
+                      <div
+                        key={book._id}
+                        className="quick-search-result-item"
+                        onClick={() => handleQuickSearchResultClick(book._id)}
+                      >
+                        <div className="quick-search-result-image">
+                          {book.coverImage ? (
+                            <img 
+                              src={book.coverImage} 
+                              alt={book.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }}
+                            />
+                          ) : (
+                            <div style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              backgroundColor: '#f3f4f6',
+                              borderRadius: '4px',
+                              fontSize: '2rem'
+                            }}>
+                              📚
+                            </div>
+                          )}
+                        </div>
+                        <div className="quick-search-result-content">
+                          <div className="quick-search-result-title">{book.title}</div>
+                          <div className="quick-search-result-author">by {book.author}</div>
+                          {book.description && (
+                            <div className="quick-search-result-description">
+                              {book.description.length > 100 
+                                ? `${book.description.substring(0, 100)}...` 
+                                : book.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : heroSearchQuery.trim().length >= 1 ? (
+                  <div className="quick-search-empty">
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                      No results found
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
+      <div className="container" style={{ paddingTop: '1.5rem', paddingBottom: '2rem' }}>
         {/* Featured Books Carousel */}
         {featuredBooks.length > 0 && (
-          <div className="featured-carousel" style={{ marginBottom: '3rem' }}>
-            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 'bold' }}>Featured Books</h2>
+          <div className="featured-carousel" style={{ marginBottom: '2rem' }}>
+            <h2 className="section-title">Featured Books</h2>
             <div className="carousel-container" style={{ position: 'relative', overflow: 'hidden', borderRadius: '8px' }}>
               <div 
                 className="carousel-track" 
@@ -342,8 +559,8 @@ export default function Home() {
         )}
 
         {/* Book Categories Navigation */}
-        <div className="categories-section" style={{ marginBottom: '2rem' }}>
-          <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 'bold' }}>Browse by Category</h2>
+        <div className="categories-section" style={{ marginBottom: '1.5rem' }}>
+          <h2 className="section-title">Browse by Category</h2>
           <div className="categories-grid" style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
@@ -382,40 +599,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="search-section">
-          <div className="search-bar">
-            <input
-              type="text"
-              placeholder="Search by title, author, or ISBN..."
-              value={localSearchQuery}
-              onChange={(e) => setLocalSearchQuery(e.target.value)}
-              className="form-input search-input"
-            />
-            {localSearchQuery && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setLocalSearchQuery('');
-                  dispatch(setSearchQuery(''));
-                  const params = {
-                    page: 1,
-                    limit,
-                    ...(filters.category && { category: filters.category }),
-                    ...(filters.language && { language: filters.language }),
-                    ...(filters.availability && { availability: filters.availability }),
-                    ...(filters.sort && { sort: filters.sort }),
-                    ...(filters.order && { order: filters.order }),
-                  };
-                  dispatch(fetchBooks(params));
-                }}
-              >
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
-
+        {/* Books Layout */}
         <div className="books-layout">
           {/* Filters Sidebar */}
           <aside className="filters-sidebar">
@@ -429,9 +613,61 @@ export default function Home() {
 
           {/* Books Grid */}
           <main className="books-main">
+            {/* Book Listing Search Bar - Separate from hero search */}
+            <div className="listing-search-container" style={{ marginBottom: '1.5rem' }}>
+              <div className="listing-search-wrapper" style={{ position: 'relative', maxWidth: '100%' }}>
+                <Search 
+                  size={18} 
+                  strokeWidth={2}
+                  style={{ 
+                    position: 'absolute', 
+                    left: '12px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    pointerEvents: 'none',
+                    zIndex: 1
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Filter books by title, author, or ISBN..."
+                  value={listingSearchQuery}
+                  onChange={(e) => setListingSearchQuery(e.target.value)}
+                  className="listing-search-input"
+                  style={{
+                    paddingRight: listingSearchQuery ? '2.5rem' : '0.75rem'
+                  }}
+                />
+                {listingSearchQuery && (
+                  <button
+                    onClick={() => {
+                      setListingSearchQuery('');
+                      dispatch(setSearchQuery(''));
+                      const params = {
+                        page: 1,
+                        limit,
+                        ...(filters.category && { category: filters.category }),
+                        ...(filters.language && { language: filters.language }),
+                        ...(filters.availability && { availability: filters.availability }),
+                        ...(filters.sort && { sort: filters.sort }),
+                        ...(filters.order && { order: filters.order }),
+                      };
+                      dispatch(fetchBooks(params));
+                    }}
+                    className="listing-search-clear"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="books-header">
               <h2>
-                {searchQuery ? `Search Results for "${searchQuery}"` : 'All Books'}
+                {activeSearchQuery ? `Search Results for "${activeSearchQuery}"` : 'All Books'}
               </h2>
               <p className="books-count">
                 {pagination.total 
